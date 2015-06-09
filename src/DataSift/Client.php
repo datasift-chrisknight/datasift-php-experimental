@@ -15,7 +15,7 @@
  */
 
 namespace DataSift;
-use GuzzleHttp\Client as CurlClient;
+use GuzzleHttp\Client as HttpClient;
 use DataSift\Exception\APIError;
 
 class Client {
@@ -75,16 +75,16 @@ class Client {
      *
      *
      * @param array $config
-     * @param CurlClient $client
+     * @param HttpClient $client
      * @throws APIError
      */
-    public function __construct($config, CurlClient $client = null)
+    public function __construct($config, HttpClient $client = null)
     {
         $config = $this->validateConfig($config);
         $this->setConfig($config);
 
         if($client === null) {
-            $client = new CurlClient(array(
+            $client = new HttpClient(array(
                 'base_uri'  => 'https://' . $config['base_uri'] . '/',
                 'headers'   => array(
                     'User-Agent'    => Client::USER_AGENT
@@ -173,9 +173,9 @@ class Client {
     /**
      *
      *
-     * @param CurlClient $client
+     * @param HttpClient $client
      */
-    public function setClient(CurlClient $client)
+    public function setClient(HttpClient $client)
     {
         $this->client = $client;
     }
@@ -183,7 +183,7 @@ class Client {
     /**
      *
      *
-     * @return CurlClient
+     * @return HttpClient
      */
     public function getClient()
     {
