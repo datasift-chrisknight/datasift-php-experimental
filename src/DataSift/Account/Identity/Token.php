@@ -1,27 +1,27 @@
 <?php
 /**
- * DataSift client
+ * DataSift Client for PHP
  *
  * This software is the intellectual property of MediaSift Ltd., and is covered
  * by retained intellectual property rights, including copyright.
  * Distribution of this software is strictly forbidden under the terms of this license.
  *
  * @category  DataSift
- * @package   PHP-client
- * @author    Stuart Dallas <stuart@3ft9.com>
- * @copyright 2011 MediaSift Ltd.
+ * @package   DataSift Client for PHP
+ * @author    Chris Knight <chris.knight@datasift.com>
+ * @copyright 2015 MediaSift Ltd.
  * @license   http://www.debian.org/misc/bsd.license BSD License (3 Clause)
  * @link      http://www.mediasift.com
  */
 
 /**
- * The DataSift_Account_Identity_Token class defines identity tokens endpoint.
+ * The DataSift\Account\Identity\Token class defines identity tokens endpoint.
  *
- * @category DataSift
- * @package  PHP-client
- * @author   Chris Knight <chris.knight@datasift.com>
- * @license  http://www.debian.org/misc/bsd.license BSD License (3 Clause)
- * @link     http://www.mediasift.com
+ * @package   DataSift Client for PHP
+ * @author    Chris Knight <chris.knight@datasift.com>
+ * @copyright 2015 MediaSift Ltd.
+ * @license   http://www.debian.org/misc/bsd.license BSD License (3 Clause)
+ * @link      http://www.mediasift.com
  */
 
 namespace DataSift\Account\Identity;
