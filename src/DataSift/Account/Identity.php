@@ -23,6 +23,7 @@
  * @license   http://www.debian.org/misc/bsd.license BSD License (3 Clause)
  * @link      http://www.mediasift.com
  */
+
 namespace DataSift\Account;
 use DataSift\Base;
 
@@ -49,12 +50,16 @@ class Identity extends Base
      * @return array|bool
      * @throws \DataSift\Exception\APIError
      */
-    public function getAll($label = null, $page = 1, $perPage = 25)
+    public function getAll($page = 1, $perPage = 25, $label = null)
     {
         $qs = array(
-            'page' => $page,
-            'per_page' => $perPage
+            'page'      => $page,
+            'per_page'  => $perPage
         );
+
+        if($label !== null) {
+            $qs['label'] = $label;
+        }
 
         return $this->getClient()->get('account/identity', $qs);
     }

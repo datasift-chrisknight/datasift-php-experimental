@@ -18,17 +18,23 @@ namespace DataSift;
 use GuzzleHttp\Client as HttpClient;
 use DataSift\Exception\APIError;
 
-class Client {
-    const USER_AGENT = 'DataSiftPHP/3.0.0-alpha';
+class Client
+{
+    const DEFAULT_USER_AGENT    = 'DataSiftPHP/3.0.0-alpha';
+    const DEFAULT_BASE_URI      = 'api.datasift.com';
+    const DEFAULT_API_VERSION   = 1;
+    const DEFAULT_VERIFY        = true;
+    const DEFAULT_DEBUG         = false;
+    const DEFAULT_TIMEOUT       = 5;
 
-    const HTTP_OK = 200;
-    const HTTP_CREATED = 201;
-    const HTTP_NO_CONTENT = 204;
-    const HTTP_BAD_REQUEST = 400;
-    const HTTP_UNAUTHORIZED = 401;
-    const HTTP_NOT_FOUND = 404;
-    const HTTP_CONFLICT = 409;
-    const HTTP_GONE = 410;
+    const HTTP_OK               = 200;
+    const HTTP_CREATED          = 201;
+    const HTTP_NO_CONTENT       = 204;
+    const HTTP_BAD_REQUEST      = 400;
+    const HTTP_UNAUTHORIZED     = 401;
+    const HTTP_NOT_FOUND        = 404;
+    const HTTP_CONFLICT         = 409;
+    const HTTP_GONE             = 410;
 
     const NEW_LINE = "\n";
 
@@ -46,12 +52,14 @@ class Client {
      * @var array
      */
     protected $defaultConfig = array(
-        'username'              => null,
-        'api_key'               => null,
-        'base_uri'              => 'api.datasift.com',
-        'verify'                => true,
-        'debug'                 => false,
-        'timeout'               => 5
+        'username'      => null,
+        'api_key'       => null,
+        'base_uri'      => Client::DEFAULT_BASE_URI,
+        'api_version'   => Client::DEFAULT_API_VERSION,
+        'user_agent'    => Client::DEFAULT_USER_AGENT,
+        'verify'        => Client::DEFAULT_VERIFY,
+        'debug'         => Client::DEFAULT_DEBUG,
+        'timeout'       => Client::DEFAULT_TIMEOUT
     );
 
     /**
@@ -85,9 +93,9 @@ class Client {
 
         if($client === null) {
             $client = new HttpClient(array(
-                'base_uri'  => 'https://' . $config['base_uri'] . '/',
+                'base_uri'  => 'https://' . $config['base_uri'] . '/v' . $config['version'] . '/',
                 'headers'   => array(
-                    'User-Agent'    => Client::USER_AGENT
+                    'User-Agent'    => $config['user_agent']
                 ),
                 'timeout'   => $config['timeout']
             ));
@@ -252,6 +260,8 @@ class Client {
     }
 
     /**
+     *
+     *
      * @param string $method
      * @param array $body
      * @param array $successCode
@@ -261,7 +271,7 @@ class Client {
     public function post($method, array $body, array $successCode = array(Client::HTTP_CREATED))
     {
         try {
-            $headers = $this->buildHeaders(array('body' => $body), 'application/json');
+            $headers = $this->buildHeaders(array('json' => $body), 'application/json');
             $response = $this->getClient()->post($method, $headers);
 
             return $this->processResponse($response, $successCode);
@@ -397,7 +407,7 @@ class Client {
             return $this->decodeBody($response);
         }
 
-        return $this->processError($response);
+        return $this->decodeError($response);
     }
 
     /**
