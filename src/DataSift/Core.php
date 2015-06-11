@@ -47,7 +47,7 @@ class Core extends Base
     /**
      *
      *
-     * @param       $csdl
+     * @param  string     $csdl
      * @return array|bool
      * @throws Exception\APIError
      */

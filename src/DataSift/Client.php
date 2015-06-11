@@ -16,25 +16,38 @@
 
 namespace DataSift;
 use GuzzleHttp\Client as HttpClient;
+use GuzzleHttp\Exception\ClientException as ClientException;
 use DataSift\Exception\APIError;
 
 class Client
 {
-    const DEFAULT_USER_AGENT    = 'DataSiftPHP/3.0.0-alpha';
-    const DEFAULT_BASE_URI      = 'api.datasift.com';
-    const DEFAULT_API_VERSION   = 1;
-    const DEFAULT_VERIFY        = true;
-    const DEFAULT_DEBUG         = false;
-    const DEFAULT_TIMEOUT       = 5;
+    const DEFAULT_USER_AGENT                = 'DataSiftPHP/3.0.0-alpha';
+    const DEFAULT_BASE_URI                  = 'api.datasift.com';
+    const DEFAULT_API_VERSION               = 1;
+    const DEFAULT_VERIFY                    = true;
+    const DEFAULT_DEBUG                     = false;
+    const DEFAULT_TIMEOUT                   = 5;
 
-    const HTTP_OK               = 200;
-    const HTTP_CREATED          = 201;
-    const HTTP_NO_CONTENT       = 204;
-    const HTTP_BAD_REQUEST      = 400;
-    const HTTP_UNAUTHORIZED     = 401;
-    const HTTP_NOT_FOUND        = 404;
-    const HTTP_CONFLICT         = 409;
-    const HTTP_GONE             = 410;
+    const HTTP_OK                           = 200;
+    const HTTP_CREATED                      = 201;
+    const HTTP_ACCEPTED                     = 202;
+    const HTTP_NO_CONTENT                   = 204;
+
+    const HTTP_BAD_REQUEST                  = 400;
+    const HTTP_UNAUTHORIZED                 = 401;
+    const HTTP_FORBIDDEN                    = 403;
+    const HTTP_NOT_FOUND                    = 404;
+    const HTTP_REQUEST_TIMEOUT              = 408;
+    const HTTP_CONFLICT                     = 409;
+    const HTTP_GONE                         = 410;
+    const HTTP_REQUEST_ENTITY_TOO_LARGE     = 413;
+
+    const HTTP_INTERNAL_SERVER_ERROR        = 500;
+    const HTTP_NOT_IMPLEMENTED              = 501;
+    const HTTP_BAD_GATEWAY                  = 502;
+    const HTTP_SERVICE_UNAVAILABLE          = 503;
+    const HTTP_GATEWAY_TIMEOUT              = 504;
+    const HTTP_VERSION_NOT_SUPPORTED        = 505;
 
     const NEW_LINE = "\n";
 
@@ -93,7 +106,7 @@ class Client
 
         if($client === null) {
             $client = new HttpClient(array(
-                'base_uri'  => 'https://' . $config['base_uri'] . '/v' . $config['version'] . '/',
+                'base_uri'  => 'http://' . $config['base_uri'] . '/v' . $config['api_version'] . '/',
                 'headers'   => array(
                     'User-Agent'    => $config['user_agent']
                 ),
@@ -254,6 +267,8 @@ class Client
             $response = $this->getClient()->get($method, $headers);
 
             return $this->processResponse($response, $successCode);
+        } catch (ClientException $response) {
+            return $this->decodeException($response);
         } catch (\Exception $e) {
             throw new APIError($e->getMessage());
         }
@@ -293,7 +308,7 @@ class Client
     public function patch($method, array $body, array $successCode = array(Client::HTTP_OK))
     {
         try {
-            $headers = $this->buildHeaders(array('body' => $body), 'application/json');
+            $headers = $this->buildHeaders(array('json' => $body), 'application/json');
             $response = $this->getClient()->patch($method, $headers);
 
             return $this->processResponse($response, $successCode);
@@ -314,7 +329,7 @@ class Client
     public function put($method, array $body, array $successCode = array(Client::HTTP_OK))
     {
         try {
-            $headers = $this->buildHeaders(array('body' => $body), 'application/json');
+            $headers = $this->buildHeaders(array('json' => $body), 'application/json');
             $response = $this->getClient()->put($method, $headers);
 
             return $this->processResponse($response, $successCode);
@@ -378,14 +393,7 @@ class Client
         return $headers;
     }
 
-    /**
-     *
-     *
-     * @param $response
-     * @param $successCode
-     * @return array|boolean
-     */
-    protected function processResponse($response, $successCode)
+    protected function processLimits($response)
     {
         $rateLimit = -1;
         $rateLimitRemaining = -1;
@@ -402,6 +410,18 @@ class Client
 
         $this->setRateLimit($rateLimit);
         $this->setRateLimitRemaining($rateLimitRemaining);
+    }
+
+    /**
+     *
+     *
+     * @param $response
+     * @param $successCode
+     * @return array|boolean
+     */
+    protected function processResponse($response, $successCode)
+    {
+        $this->processLimits($response);
 
         if (in_array($response->getStatusCode(), $successCode)) {
             return $this->decodeBody($response);
@@ -449,6 +469,7 @@ class Client
      */
     protected function decodeError($response)
     {
+        $this->processLimits($response);
         $error = json_decode($response->getBody(), true);
 
         //do this better
@@ -456,5 +477,96 @@ class Client
             'response_code' => $error['response_code'],
             'error' => $error['data']['error']
         );
+    }
+
+    protected function decodeException($exception)
+    {
+        $response = $exception->getResponse();
+        $this->processLimits($response);
+
+        return array(
+            'response_code' => $response->getStatusCode(),
+            'error' => $response->getReasonPhrase()
+        );
+
+        /*switch ($response->getCode()) {
+            case Client::HTTP_BAD_REQUEST: {
+                $error['error'] = 'HTTP_BAD_REQUEST';
+                break;
+            }
+
+            case Client::HTTP_UNAUTHORIZED: {
+                $error['error'] = 'HTTP_UNAUTHORIZED';
+                break;
+            }
+
+            case Client::HTTP_FORBIDDEN: {
+                $error['error'] = 'HTTP_FORBIDDEN';
+                break;
+            }
+
+            case Client::HTTP_NOT_FOUND: {
+                $error['error'] = 'HTTP_NOT_FOUND';
+                break;
+            }
+
+            case Client::HTTP_REQUEST_TIMEOUT: {
+                $error['error'] = 'HTTP_REQUEST_TIMEOUT';
+                break;
+            }
+
+            case Client::HTTP_CONFLICT: {
+                $error['error'] = 'HTTP_CONFLICT';
+                break;
+            }
+
+            case Client::HTTP_GONE: {
+                $error['error'] = 'HTTP_GONE';
+                break;
+            }
+
+            case Client::HTTP_REQUEST_ENTITY_TOO_LARGE: {
+                $error['error'] = 'HTTP_REQUEST_ENTITY_TOO_LARGE';
+                break;
+            }
+
+            case Client::HTTP_INTERNAL_SERVER_ERROR: {
+                $error['error'] = 'HTTP_REQUEST_TIMEOUT';
+                break;
+            }
+
+            case Client::HTTP_NOT_IMPLEMENTED: {
+                $error['error'] = 'HTTP_REQUEST_TIMEOUT';
+                break;
+            }
+
+            case Client::HTTP_BAD_GATEWAY: {
+                $error['error'] = 'HTTP_REQUEST_TIMEOUT';
+                break;
+            }
+
+            case Client::HTTP_SERVICE_UNAVAILABLE: {
+                $error['error'] = 'HTTP_REQUEST_TIMEOUT';
+                break;
+            }
+
+            case Client::HTTP_GATEWAY_TIMEOUT: {
+                $error['error'] = 'HTTP_REQUEST_TIMEOUT';
+                break;
+            }
+
+            case Client::HTTP_VERSION_NOT_SUPPORTED: {
+                $error['error'] = 'HTTP_VERSION_NOT_SUPPORTED';
+                break;
+            }
+
+            default: {
+                $error['error'] = '*shrug*';
+            }
+        }
+
+        $error['error'] .= ' - TEMP';
+
+        return $error;*/
     }
 }
