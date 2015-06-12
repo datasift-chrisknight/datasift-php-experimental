@@ -55,8 +55,8 @@ class Token extends Base
     public function getAll($identity, $page = 1, $perPage = 25)
     {
         $qs = array(
-            'page' => $page,
-            'per_page' => $perPage
+            'page'          => $page,
+            'per_page'      => $perPage
         );
 
         return $this->getClient()->get('account/identity/' . $identity . '/token', $qs);

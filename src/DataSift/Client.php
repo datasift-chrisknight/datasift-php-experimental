@@ -16,7 +16,9 @@
 
 namespace DataSift;
 use GuzzleHttp\Client as HttpClient;
-use GuzzleHttp\Exception\ClientException as ClientException;
+use GuzzleHttp\Exception\ClientException;
+use Monolog\Logger as Logger;
+use Monolog\Handler\StreamHandler;
 use DataSift\Exception\APIError;
 
 class Client
@@ -27,6 +29,8 @@ class Client
     const DEFAULT_VERIFY                    = true;
     const DEFAULT_DEBUG                     = false;
     const DEFAULT_TIMEOUT                   = 5;
+    const DEFAULT_LOG_LEVEL                 = Logger::WARNING;
+    const DEFAULT_LOG_PATH                  = '/Users/chrisknight/api.log';
 
     const HTTP_OK                           = 200;
     const HTTP_CREATED                      = 201;
@@ -52,9 +56,14 @@ class Client
     const NEW_LINE = "\n";
 
     /**
-     * @var CurlClient
+     * @var HttpClient
      */
     protected $client = null;
+
+    /**
+     * @var Logger
+     */
+    protected $logger = null;
 
     /**
      * @var array
@@ -72,7 +81,9 @@ class Client
         'user_agent'    => Client::DEFAULT_USER_AGENT,
         'verify'        => Client::DEFAULT_VERIFY,
         'debug'         => Client::DEFAULT_DEBUG,
-        'timeout'       => Client::DEFAULT_TIMEOUT
+        'timeout'       => Client::DEFAULT_TIMEOUT,
+        'log_level'     => Client::DEFAULT_LOG_LEVEL,
+        'log_path'      => Client::DEFAULT_LOG_PATH
     );
 
     /**
@@ -114,7 +125,11 @@ class Client
             ));
         }
 
+        $logger = new Logger('log');
+        $logger->pushHandler(new StreamHandler($config['log_path'], $config['log_level']));
+
         $this->setClient($client);
+        $this->setLogger($logger);
     }
 
     /**
@@ -137,11 +152,16 @@ class Client
         }
 
         if (count($required) !== 0) {
+            // is this really an api error? not really.
             throw new APIError('Requires ' . implode(', ', $required));
         }
 
         $config = array_merge($this->getDefaultConfig(), $config);
         $config = array_intersect_key($config, $this->getDefaultConfig());
+
+        if ($config['debug'] = true) {
+            $config['log_level'] = Logger::DEBUG;
+        }
 
         return $config;
     }
@@ -214,6 +234,26 @@ class Client
     /**
      *
      *
+     * @param Logger $logger
+     */
+    public function setLogger(Logger $logger)
+    {
+        $this->logger = $logger;
+    }
+
+    /**
+     *
+     *
+     * @return Logger
+     */
+    public function getLogger()
+    {
+        return $this->logger;
+    }
+
+    /**
+     *
+     *
      * @param integer $rateLimit
      */
     public function setRateLimit($rateLimit)
@@ -266,10 +306,16 @@ class Client
             $headers = $this->buildHeaders(array('query' => $qs));
             $response = $this->getClient()->get($method, $headers);
 
+            $this->getLogger()->addDebug('DataSift\Client->get', array($method, $headers));
+
             return $this->processResponse($response, $successCode);
         } catch (ClientException $response) {
+            $this->getLogger()->addWarning('DataSift\Client->get', array($method, $headers, $response));
+
             return $this->decodeException($response);
         } catch (\Exception $e) {
+            $this->getLogger()->addError('DataSift\Client->get', array($method, $headers, $e));
+
             throw new APIError($e->getMessage());
         }
     }
@@ -288,6 +334,8 @@ class Client
         try {
             $headers = $this->buildHeaders(array('json' => $body), 'application/json');
             $response = $this->getClient()->post($method, $headers);
+
+            $this->getLogger()->addDebug('DataSift\Client->post', array($method, $headers));
 
             return $this->processResponse($response, $successCode);
         } catch (\Exception $e) {
@@ -311,6 +359,8 @@ class Client
             $headers = $this->buildHeaders(array('json' => $body), 'application/json');
             $response = $this->getClient()->patch($method, $headers);
 
+            $this->getLogger()->addDebug('DataSift\Client->patch', array($method, $headers));
+
             return $this->processResponse($response, $successCode);
         } catch (\Exception $e) {
             throw new APIError($e->getMessage());
@@ -332,6 +382,8 @@ class Client
             $headers = $this->buildHeaders(array('json' => $body), 'application/json');
             $response = $this->getClient()->put($method, $headers);
 
+            $this->getLogger()->addDebug('DataSift\Client->put', array($method, $headers));
+
             return $this->processResponse($response, $successCode);
         } catch (\Exception $e) {
             throw new APIError($e->getMessage());
@@ -351,6 +403,8 @@ class Client
         try {
             $headers = $this->buildHeaders();
             $response = $this->getClient()->get($method, $headers);
+
+            $this->getLogger()->addDebug('DataSift\Client->delete', array($method, $headers));
 
             return $this->processResponse($response, $successCode);
         } catch (\Exception $e) {
@@ -395,8 +449,8 @@ class Client
 
     protected function processLimits($response)
     {
-        $rateLimit = -1;
-        $rateLimitRemaining = -1;
+        $rateLimit = ($this->getRateLimit() ? $this->getRateLimit() : -1);
+        $rateLimitRemaining = ($this->getRateLimitRemaining() ? $this->getRateLimitRemaining() : -1);
 
         if ($response->getHeader('x-ratelimit-limit')) {
             $rateLimit = $response->getHeader('x-ratelimit-limit');
@@ -410,6 +464,8 @@ class Client
 
         $this->setRateLimit($rateLimit);
         $this->setRateLimitRemaining($rateLimitRemaining);
+
+        $this->getLogger()->addDebug('DataSift\Client->processLimits', array($rateLimit, $rateLimitRemaining));
     }
 
     /**
@@ -445,6 +501,8 @@ class Client
                 $format = $response->getHeader('x-datasift-format');
             };
 
+            $this->getLogger()->addDebug('DataSift\Client->decodeBody', array($format, $response->getBody()));
+
             if (in_array('json_new_line', $format)) {
                 $body = array();
                 $parts = explode(Client::NEW_LINE, $response->getBody());
@@ -452,12 +510,14 @@ class Client
                 foreach ($parts as $json) {
                     $body[] = json_decode($json, true);
                 }
+
                 return $body;
             }
 
             return json_decode($response->getBody(), true);
         }
 
+        $this->getLogger()->addDebug('DataSift\Client->decodeBody', array($response->getBody()));
         return true;
     }
 
@@ -479,94 +539,27 @@ class Client
         );
     }
 
+    /**
+     * @param $exception
+     * @return array
+     */
     protected function decodeException($exception)
     {
         $response = $exception->getResponse();
+        $request = $exception->getRequest();
         $this->processLimits($response);
+
+        $this->getLogger()->addError('DataSift\Client->decodeException', array(
+            'response_code' => $response->getStatusCode(),
+            'reason_phrase' => $response->getReasonPhrase(),
+            'uri' => $request->getUri(),
+            'headers' => $request->getHeaders(),
+            'body' => $request->getBody()
+        ));
 
         return array(
             'response_code' => $response->getStatusCode(),
             'error' => $response->getReasonPhrase()
         );
-
-        /*switch ($response->getCode()) {
-            case Client::HTTP_BAD_REQUEST: {
-                $error['error'] = 'HTTP_BAD_REQUEST';
-                break;
-            }
-
-            case Client::HTTP_UNAUTHORIZED: {
-                $error['error'] = 'HTTP_UNAUTHORIZED';
-                break;
-            }
-
-            case Client::HTTP_FORBIDDEN: {
-                $error['error'] = 'HTTP_FORBIDDEN';
-                break;
-            }
-
-            case Client::HTTP_NOT_FOUND: {
-                $error['error'] = 'HTTP_NOT_FOUND';
-                break;
-            }
-
-            case Client::HTTP_REQUEST_TIMEOUT: {
-                $error['error'] = 'HTTP_REQUEST_TIMEOUT';
-                break;
-            }
-
-            case Client::HTTP_CONFLICT: {
-                $error['error'] = 'HTTP_CONFLICT';
-                break;
-            }
-
-            case Client::HTTP_GONE: {
-                $error['error'] = 'HTTP_GONE';
-                break;
-            }
-
-            case Client::HTTP_REQUEST_ENTITY_TOO_LARGE: {
-                $error['error'] = 'HTTP_REQUEST_ENTITY_TOO_LARGE';
-                break;
-            }
-
-            case Client::HTTP_INTERNAL_SERVER_ERROR: {
-                $error['error'] = 'HTTP_REQUEST_TIMEOUT';
-                break;
-            }
-
-            case Client::HTTP_NOT_IMPLEMENTED: {
-                $error['error'] = 'HTTP_REQUEST_TIMEOUT';
-                break;
-            }
-
-            case Client::HTTP_BAD_GATEWAY: {
-                $error['error'] = 'HTTP_REQUEST_TIMEOUT';
-                break;
-            }
-
-            case Client::HTTP_SERVICE_UNAVAILABLE: {
-                $error['error'] = 'HTTP_REQUEST_TIMEOUT';
-                break;
-            }
-
-            case Client::HTTP_GATEWAY_TIMEOUT: {
-                $error['error'] = 'HTTP_REQUEST_TIMEOUT';
-                break;
-            }
-
-            case Client::HTTP_VERSION_NOT_SUPPORTED: {
-                $error['error'] = 'HTTP_VERSION_NOT_SUPPORTED';
-                break;
-            }
-
-            default: {
-                $error['error'] = '*shrug*';
-            }
-        }
-
-        $error['error'] .= ' - TEMP';
-
-        return $error;*/
     }
 }
