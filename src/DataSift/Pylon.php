@@ -27,21 +27,12 @@ class Pylon extends Base
     protected $start;
     protected $end;
     protected $volume;
-    protected $defaultAttributes = array(
-        'name',
-        'csdl',
-        'hash',
-        'status',
-        'start',
-        'end',
-        'volume',
-    );
 
     /**
      *
      *
-     * @param Client $client
-     * @param array $attributes
+     * @param Client    $client
+     * @param array     $attributes
      */
     public function __construct(Client $client, array $attributes = array())
     {
@@ -55,7 +46,7 @@ class Pylon extends Base
     /**
      *
      *
-     * @param array $attributes
+     * @param array     $attributes
      */
     protected function load(array $attributes)
     {
@@ -70,7 +61,7 @@ class Pylon extends Base
     /**
      *
      *
-     * @param $attributes
+     * @param  array    $attributes
      * @return Pylon
      */
     protected function getObject($attributes)
@@ -81,7 +72,7 @@ class Pylon extends Base
     /**
      *
      *
-     * @param string $hash
+     * @param string    $hash
      * @return array|bool
      * @throws Exception\APIError
      */
@@ -101,10 +92,10 @@ class Pylon extends Base
     /**
      *
      *
-     * @param integer $page
-     * @param integer $perPage
-     * @param string $orderBy
-     * @param string $orderDir
+     * @param integer   $page
+     * @param integer   $perPage
+     * @param string    $orderBy
+     * @param string    $orderDir
      *
      * @return array
      *
@@ -144,7 +135,7 @@ class Pylon extends Base
     /**
      *
      *
-     * @param $name
+     * @param string    $name
      */
     public function setName($name)
     {
@@ -164,7 +155,7 @@ class Pylon extends Base
     /**
      *
      *
-     * @param $csdl
+     * @param string    $csdl
      */
     public function setCsdl($csdl)
     {
@@ -184,7 +175,7 @@ class Pylon extends Base
     /**
      *
      *
-     * @param $hash
+     * @param string    $hash
      */
     public function setHash($hash)
     {
@@ -204,7 +195,7 @@ class Pylon extends Base
     /**
      *
      *
-     * @param string $csdl
+     * @param string    $csdl
      * @return array|bool
      * @throws Exception\APIError
      */
@@ -218,7 +209,7 @@ class Pylon extends Base
     /**
      *
      *
-     * @param string $csdl
+     * @param string    $csdl
      * @return array|bool
      * @throws Exception\APIError
      * @throws InvalidDataError
@@ -243,8 +234,8 @@ class Pylon extends Base
     /**
      *
      *
-     * @param string $hash
-     * @param string $name
+     * @param string    $hash
+     * @param string    $name
      * @return array|bool
      * @throws Exception\APIError
      * @throws InvalidDataError
@@ -269,13 +260,13 @@ class Pylon extends Base
             $body['name'] = $this->getName();
         }
 
-        return $this->getClient()->post('pylon/start', $body);
+        return $this->getClient()->post('pylon/start', $body, array(Client::HTTP_NO_CONTENT));
     }
 
     /**
      *
      *
-     * @param string $hash
+     * @param string    $hash
      * @return array|bool
      * @throws Exception\APIError
      * @throws InvalidDataError
@@ -294,17 +285,17 @@ class Pylon extends Base
             'hash' => $this->getHash()
         );
 
-        return $this->getClient()->post('pylon/stop', $body);
+        return $this->getClient()->post('pylon/stop', $body, array(Client::HTTP_NO_CONTENT));
     }
 
     /**
      *
      *
-     * @param $params
-     * @param bool $filter
-     * @param bool $start
-     * @param bool $end
-     * @param bool $hash
+     * @param array     $params
+     * @param boolean   $filter
+     * @param boolean   $start
+     * @param boolean   $end
+     * @param boolean   $hash
      * @return array|bool
      *
      * @throws Exception\APIError
@@ -348,7 +339,7 @@ class Pylon extends Base
     /**
      *
      *
-     * @param string $hash
+     * @param string    $hash
      * @return array|bool
      * @throws Exception\APIError
      * @throws InvalidDataError
