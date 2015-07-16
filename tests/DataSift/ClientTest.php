@@ -33,7 +33,6 @@ class ClientTest extends PHPUnit_Framework_TestCase {
                 'verify'                => true,
                 'debug'                 => true,
                 'base_uri'              => 'api.datasift.com'
-
             ),
         );
     }
