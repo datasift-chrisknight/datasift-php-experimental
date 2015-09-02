@@ -19,21 +19,20 @@ class ClientTest extends PHPUnit_Framework_TestCase {
     {
         return array(
             array(
-                'api_key'               => 'c8444e0e9c9cc30e0f08f11a67493d24',
-                'username'              => 'pylon_product',
+                'api_key'               => '123445678901234567890123456789012',
+                'username'              => 'demo_name',
                 'use_ssl'               => false,
                 'verify'                => true,
                 'debug'                 => true,
                 'streaming_end_point'   => 'test'
             ),
             array(
-                'api_key'               => 'c8444e0e9c9cc30e0f08f11a67493d24',
-                'username'              => 'pylon_product',
+                'api_key'               => '123445678901234567890123456789012',
+                'username'              => 'demo_name',
                 'use_ssl'               => false,
                 'verify'                => true,
                 'debug'                 => true,
                 'base_uri'              => 'api.datasift.com'
-
             ),
         );
     }
