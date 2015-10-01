@@ -18,6 +18,9 @@ namespace DataSift;
 
 class Base
 {
+    const DEFAULT_PAGE = 1;
+    const DEFAULT_PER_PAGE = 25;
+
     /**
      * @var Client
      */

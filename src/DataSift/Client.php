@@ -15,37 +15,55 @@
  */
 
 namespace DataSift;
+use DataSift\Exception\APIError;
+use DataSift\Exception\InvalidDataError;
 use GuzzleHttp\Client as HttpClient;
 use GuzzleHttp\Exception\ClientException;
 use Monolog\Logger as Logger;
 use Monolog\Handler\StreamHandler;
-use DataSift\Exception\APIError;
 
 class Client
 {
+    /**
+     * Default configuration
+     */
     const DEFAULT_USER_AGENT                = 'DataSiftPHP/3.0.0-alpha';
     const DEFAULT_BASE_URI                  = 'api.datasift.com';
-    const DEFAULT_API_VERSION               = 1;
+    const DEFAULT_API_VERSION               = 1.2;
     const DEFAULT_VERIFY                    = true;
     const DEFAULT_DEBUG                     = false;
     const DEFAULT_TIMEOUT                   = 5;
     const DEFAULT_LOG_LEVEL                 = Logger::WARNING;
     const DEFAULT_LOG_PATH                  = '/Users/chrisknight/api.log';
 
+    /**
+     * HTTP Success
+     */
     const HTTP_OK                           = 200;
     const HTTP_CREATED                      = 201;
     const HTTP_ACCEPTED                     = 202;
     const HTTP_NO_CONTENT                   = 204;
+    const HTTP_RESET_CONTENT                = 205;
 
+    /**
+     * HTTP Client Error
+     */
     const HTTP_BAD_REQUEST                  = 400;
     const HTTP_UNAUTHORIZED                 = 401;
+    const HTTP_PAYMENT_REQUIRED             = 402;
     const HTTP_FORBIDDEN                    = 403;
     const HTTP_NOT_FOUND                    = 404;
+    const HTTP_METHOD_NOT_ALLOWED           = 405;
+    const HTTP_NOT_ACCEPTABLE               = 406;
     const HTTP_REQUEST_TIMEOUT              = 408;
     const HTTP_CONFLICT                     = 409;
     const HTTP_GONE                         = 410;
-    const HTTP_REQUEST_ENTITY_TOO_LARGE     = 413;
+    const HTTP_PAYLOAD_TOO_LARGE            = 413;
+    const HTTP_IM_A_TEAPOT                  = 418;
 
+    /**
+     * HTTP Server Error
+     */
     const HTTP_INTERNAL_SERVER_ERROR        = 500;
     const HTTP_NOT_IMPLEMENTED              = 501;
     const HTTP_BAD_GATEWAY                  = 502;
@@ -53,6 +71,9 @@ class Client
     const HTTP_GATEWAY_TIMEOUT              = 504;
     const HTTP_VERSION_NOT_SUPPORTED        = 505;
 
+    /**
+     * Other constants
+     */
     const NEW_LINE = "\n";
 
     /**
@@ -108,24 +129,31 @@ class Client
      *
      * @param array $config
      * @param HttpClient $client
+     * @param Log $logger
      * @throws APIError
      */
-    public function __construct($config, HttpClient $client = null)
-    {
+    public function __construct(
+        array $config,
+        HttpClient $client = null,
+        Logger $logger = null
+    ) {
         $config = $this->validateConfig($config);
         $this->setConfig($config);
 
-        if($client === null) {
+        if ($client === null) {
             $client = new HttpClient(array(
-                'base_uri'  => 'http://' . $config['base_uri'] . '/v' . $config['api_version'] . '/',
-                'headers'   => array(
-                    'User-Agent'    => $config['user_agent']
+                'base_uri' => 'http://' . $config['base_uri'] . '/v' . $config['api_version'] . '/',
+                'headers' => array(
+                    'User-Agent' => $config['user_agent']
                 ),
-                'timeout'   => $config['timeout']
+                'timeout' => $config['timeout']
             ));
         }
 
-        $logger = new Logger('log');
+        if ($logger === null) {
+            $logger = new Logger('log');
+        }
+
         $logger->pushHandler(new StreamHandler($config['log_path'], $config['log_level']));
 
         $this->setClient($client);
@@ -137,7 +165,7 @@ class Client
      *
      * @param array $config
      * @return array
-     * @throws APIError
+     * @throws InvalidDataError
      */
     protected function validateConfig(array $config)
     {
@@ -152,14 +180,13 @@ class Client
         }
 
         if (count($required) !== 0) {
-            // is this really an api error? not really.
-            throw new APIError('Requires ' . implode(', ', $required));
+            throw new InvalidDataError('Requires ' . implode(', ', $required));
         }
 
         $config = array_merge($this->getDefaultConfig(), $config);
         $config = array_intersect_key($config, $this->getDefaultConfig());
 
-        if ($config['debug'] = true) {
+        if ($config['debug'] == true) {
             $config['log_level'] = Logger::DEBUG;
         }
 
@@ -184,8 +211,12 @@ class Client
      */
     public function getConfig($key = null)
     {
-        if($key !== null && isset($this->config[$key])) {
-            return $this->config[$key];
+        if($key !== null) {
+            if (isset($this->config[$key])) {
+                return $this->config[$key];
+            }
+
+            return null;
         }
 
         return $this->config;
@@ -428,19 +459,19 @@ class Client
             ),
         );
 
-        if($contentType !== null) {
+        if ($contentType !== null) {
             $headers['headers']['Content-Type'] = $contentType;
         }
 
-        if($additionalHeaders !== null) {
+        if ($additionalHeaders !== null) {
             $headers = array_merge($headers, $additionalHeaders);
         }
 
-        if($this->getConfig('debug')) {
+        if ($this->getConfig('debug')) {
             $headers['debug'] = $this->getConfig('debug');
         }
 
-        if($this->getConfig('verify')) {
+        if ($this->getConfig('verify')) {
             $headers['verify'] = $this->getConfig('verify');
         }
 
@@ -534,8 +565,8 @@ class Client
 
         //do this better
         return array(
-            'response_code' => $error['response_code'],
-            'error' => $error['data']['error']
+            'response_code'     => $error['response_code'],
+            'error'             => $error['data']['error']
         );
     }
 
@@ -550,16 +581,16 @@ class Client
         $this->processLimits($response);
 
         $this->getLogger()->addError('DataSift\Client->decodeException', array(
-            'response_code' => $response->getStatusCode(),
-            'reason_phrase' => $response->getReasonPhrase(),
-            'uri' => $request->getUri(),
-            'headers' => $request->getHeaders(),
-            'body' => $request->getBody()
+            'response_code'     => $response->getStatusCode(),
+            'reason_phrase'     => $response->getReasonPhrase(),
+            'uri'               => $request->getUri(),
+            'headers'           => $request->getHeaders(),
+            'body'              => $request->getBody()
         ));
 
         return array(
-            'response_code' => $response->getStatusCode(),
-            'error' => $response->getReasonPhrase()
+            'response_code'     => $response->getStatusCode(),
+            'error'             => $response->getReasonPhrase()
         );
     }
 }

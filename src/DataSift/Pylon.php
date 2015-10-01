@@ -359,6 +359,5 @@ class Pylon extends Base
         );
 
         return $this->getClient()->get('pylon/tags', $qs);
-
     }
 }
