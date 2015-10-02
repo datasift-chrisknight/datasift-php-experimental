@@ -25,15 +25,48 @@ use Monolog\Handler\StreamHandler;
 class Client
 {
     /**
-     * Default configuration
+     * The default user agent for the client
      */
     const DEFAULT_USER_AGENT                = 'DataSiftPHP/3.0.0-alpha';
+
+    /**
+     * The default API location
+     */
     const DEFAULT_BASE_URI                  = 'api.datasift.com';
+
+    /**
+     * The default API version
+     */
     const DEFAULT_API_VERSION               = 1.2;
-    const DEFAULT_VERIFY                    = true;
+
+    /**
+     * The default SSL verification check
+     */
+    const DEFAULT_SSL_VERIFY                = true;
+
+    /**
+     * Allow debugging to be added to the logs
+     */
     const DEFAULT_DEBUG                     = false;
-    const DEFAULT_TIMEOUT                   = 5;
+
+    /**
+     * Allow debugging requests to be shown in the client
+     */
+    const DEFAULT_DEBUG_REQUEST             = false;
+
+    /**
+     *  The connection timeout for the request
+     */
+    const DEFAULT_CONNECTION_TIMEOUT        = 5;
+
+    /**
+     * The default log level for the client
+     */
     const DEFAULT_LOG_LEVEL                 = Logger::WARNING;
+
+    /**
+     * The default log location
+     */
     const DEFAULT_LOG_PATH                  = '/Users/chrisknight/api.log';
 
     /**
@@ -95,16 +128,17 @@ class Client
      * @var array
      */
     protected $defaultConfig = array(
-        'username'      => null,
-        'api_key'       => null,
-        'base_uri'      => Client::DEFAULT_BASE_URI,
-        'api_version'   => Client::DEFAULT_API_VERSION,
-        'user_agent'    => Client::DEFAULT_USER_AGENT,
-        'verify'        => Client::DEFAULT_VERIFY,
-        'debug'         => Client::DEFAULT_DEBUG,
-        'timeout'       => Client::DEFAULT_TIMEOUT,
-        'log_level'     => Client::DEFAULT_LOG_LEVEL,
-        'log_path'      => Client::DEFAULT_LOG_PATH
+        'username'              => null,
+        'api_key'               => null,
+        'base_uri'              => Client::DEFAULT_BASE_URI,
+        'api_version'           => Client::DEFAULT_API_VERSION,
+        'user_agent'            => Client::DEFAULT_USER_AGENT,
+        'ssl_verify'            => Client::DEFAULT_SSL_VERIFY,
+        'debug'                 => Client::DEFAULT_DEBUG,
+        'debug_request'         => Client::DEFAULT_DEBUG_REQUEST,
+        'connection_timeout'    => Client::DEFAULT_CONNECTION_TIMEOUT,
+        'log_level'             => Client::DEFAULT_LOG_LEVEL,
+        'log_path'              => Client::DEFAULT_LOG_PATH
     );
 
     /**
@@ -129,7 +163,7 @@ class Client
      *
      * @param array $config
      * @param HttpClient $client
-     * @param Log $logger
+     * @param Logger $logger
      * @throws APIError
      */
     public function __construct(
@@ -331,8 +365,11 @@ class Client
      * @return array|bool
      * @throws APIError
      */
-    public function get($method, array $qs = null, array $successCode = array(Client::HTTP_OK))
-    {
+    public function get(
+        $method,
+        array $qs = null,
+        array $successCode = array(Client::HTTP_OK)
+    ) {
         try {
             $headers = $this->buildHeaders(array('query' => $qs));
             $response = $this->getClient()->get($method, $headers);
@@ -360,8 +397,11 @@ class Client
      * @return array|bool
      * @throws APIError
      */
-    public function post($method, array $body, array $successCode = array(Client::HTTP_CREATED))
-    {
+    public function post(
+        $method,
+        array $body,
+        array $successCode = array(Client::HTTP_CREATED)
+    ) {
         try {
             $headers = $this->buildHeaders(array('json' => $body), 'application/json');
             $response = $this->getClient()->post($method, $headers);
@@ -384,8 +424,11 @@ class Client
      * @throws APIError
      * @todo work this out, http codes and whatnot
      */
-    public function patch($method, array $body, array $successCode = array(Client::HTTP_OK))
-    {
+    public function patch(
+        $method,
+        array $body,
+        array $successCode = array(Client::HTTP_OK)
+    ) {
         try {
             $headers = $this->buildHeaders(array('json' => $body), 'application/json');
             $response = $this->getClient()->patch($method, $headers);
@@ -407,8 +450,11 @@ class Client
      * @return array|bool
      * @throws APIError
      */
-    public function put($method, array $body, array $successCode = array(Client::HTTP_OK))
-    {
+    public function put(
+        $method,
+        array $body,
+        array $successCode = array(Client::HTTP_OK)
+    ) {
         try {
             $headers = $this->buildHeaders(array('json' => $body), 'application/json');
             $response = $this->getClient()->put($method, $headers);
@@ -429,8 +475,10 @@ class Client
      * @return array|bool
      * @throws APIError
      */
-    public function delete($method, array $successCode = array(Client::HTTP_NO_CONTENT))
-    {
+    public function delete(
+        $method,
+        array $successCode = array(Client::HTTP_NO_CONTENT)
+    ) {
         try {
             $headers = $this->buildHeaders();
             $response = $this->getClient()->get($method, $headers);
@@ -450,8 +498,10 @@ class Client
      * @param string $contentType
      * @return array
      */
-    protected function buildHeaders(array $additionalHeaders = null, $contentType = null)
-    {
+    protected function buildHeaders(
+        array $additionalHeaders = null,
+        $contentType = null
+    ) {
         $headers = array(
             'headers' => array(
                 'Auth' => $this->getConfig('username') . ':' . $this->getConfig('api_key'),
@@ -467,8 +517,8 @@ class Client
             $headers = array_merge($headers, $additionalHeaders);
         }
 
-        if ($this->getConfig('debug')) {
-            $headers['debug'] = $this->getConfig('debug');
+        if ($this->getConfig('debug_request')) {
+            $headers['debug'] = $this->getConfig('debug_request');
         }
 
         if ($this->getConfig('verify')) {
@@ -532,8 +582,6 @@ class Client
                 $format = $response->getHeader('x-datasift-format');
             };
 
-            $this->getLogger()->addDebug('DataSift\Client->decodeBody', array($format, $response->getBody()));
-
             if (in_array('json_new_line', $format)) {
                 $body = array();
                 $parts = explode(Client::NEW_LINE, $response->getBody());
@@ -542,10 +590,13 @@ class Client
                     $body[] = json_decode($json, true);
                 }
 
+                $this->getLogger()->addDebug('DataSift\Client->decodeBody', array($format, $body));
                 return $body;
             }
 
-            return json_decode($response->getBody(), true);
+            $body = json_decode($response->getBody(), true);
+            $this->getLogger()->addDebug('DataSift\Client->decodeBody', array($format, $body));
+            return $body;
         }
 
         $this->getLogger()->addDebug('DataSift\Client->decodeBody', array($response->getBody()));
@@ -583,9 +634,9 @@ class Client
         $this->getLogger()->addError('DataSift\Client->decodeException', array(
             'response_code'     => $response->getStatusCode(),
             'reason_phrase'     => $response->getReasonPhrase(),
-            'uri'               => $request->getUri(),
+            'uri'               => $request->getUri()->__toString(),
             'headers'           => $request->getHeaders(),
-            'body'              => $request->getBody()
+            'body'              => $request->getBody()->__toString()
         ));
 
         return array(
