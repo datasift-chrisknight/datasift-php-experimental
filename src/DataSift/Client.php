@@ -18,6 +18,7 @@ namespace DataSift;
 use DataSift\Exception\APIError;
 use DataSift\Exception\InvalidDataError;
 use GuzzleHttp\Client as HttpClient;
+use GuzzleHttp\Stream as StreamClient;
 use GuzzleHttp\Exception\ClientException;
 use Monolog\Logger as Logger;
 use Monolog\Handler\StreamHandler;
@@ -33,6 +34,11 @@ class Client
      * The default API location
      */
     const DEFAULT_BASE_URI                  = 'api.datasift.com';
+
+    /**
+     * The default streaming location
+     */
+    const DEFAULT_STREAM_URI                = 'stream.datasift.com';
 
     /**
      * The default API version
@@ -112,7 +118,12 @@ class Client
     /**
      * @var HttpClient
      */
-    protected $client = null;
+    protected $httpClient = null;
+
+    /**
+     * @var StreamClient
+     */
+    protected $streamClient = null;
 
     /**
      * @var Logger
@@ -131,6 +142,7 @@ class Client
         'username'              => null,
         'api_key'               => null,
         'base_uri'              => Client::DEFAULT_BASE_URI,
+        'stream_uri'            => Client::DEFAULT_STREAM_URI,
         'api_version'           => Client::DEFAULT_API_VERSION,
         'user_agent'            => Client::DEFAULT_USER_AGENT,
         'ssl_verify'            => Client::DEFAULT_SSL_VERIFY,
@@ -161,27 +173,33 @@ class Client
     /**
      *
      *
-     * @param array $config
-     * @param HttpClient $client
-     * @param Logger $logger
-     * @throws APIError
+     * @param   array         $config
+     * @param   HttpClient    $httpClient
+     * @param   StreamClient  $streamClient
+     * @param   Logger        $logger
+     * @throws  APIError
      */
     public function __construct(
         array $config,
-        HttpClient $client = null,
+        HttpClient $httpClient = null,
+        StreamClient $streamClient = null,
         Logger $logger = null
     ) {
         $config = $this->validateConfig($config);
         $this->setConfig($config);
 
-        if ($client === null) {
-            $client = new HttpClient(array(
+        if ($httpClient === null) {
+            $httpClient = new HttpClient(array(
                 'base_uri' => 'http://' . $config['base_uri'] . '/v' . $config['api_version'] . '/',
                 'headers' => array(
                     'User-Agent' => $config['user_agent']
                 ),
-                'timeout' => $config['timeout']
+                'timeout' => $config['connection_timeout']
             ));
+        }
+
+        if ($streamClient === null) {
+            #$streamClient = StreamClient();
         }
 
         if ($logger === null) {
@@ -190,16 +208,17 @@ class Client
 
         $logger->pushHandler(new StreamHandler($config['log_path'], $config['log_level']));
 
-        $this->setClient($client);
+        $this->setHttpClient($httpClient);
+        #$this->setStreamClient($streamClient);
         $this->setLogger($logger);
     }
 
     /**
      *
      *
-     * @param array $config
-     * @return array
-     * @throws InvalidDataError
+     * @param   array     $config
+     * @return  array
+     * @throws  InvalidDataError
      */
     protected function validateConfig(array $config)
     {
@@ -230,7 +249,7 @@ class Client
     /**
      *
      *
-     * @param array $config
+     * @param   array   $config
      */
     public function setConfig(array $config)
     {
@@ -240,8 +259,8 @@ class Client
     /**
      *
      *
-     * @param string $key
-     * @return array
+     * @param   string  $key
+     * @return  array
      */
     public function getConfig($key = null)
     {
@@ -259,7 +278,7 @@ class Client
     /**
      *
      *
-     * @return array
+     * @return  array
      */
     protected function getRequiredConfig()
     {
@@ -269,7 +288,7 @@ class Client
     /**
      *
      *
-     * @return array
+     * @return  array
      */
     protected function getDefaultConfig()
     {
@@ -279,23 +298,42 @@ class Client
     /**
      *
      *
-     * @param HttpClient $client
+     * @param   HttpClient  $httpClient
      */
-    public function setClient(HttpClient $client)
+    public function setHttpClient(HttpClient $httpClient)
     {
-        $this->client = $client;
+        $this->httpClient = $httpClient;
     }
 
     /**
      *
      *
-     * @return HttpClient
+     * @return  HttpClient
      */
-    public function getClient()
+    public function getHttpClient()
     {
-        return $this->client;
+        return $this->httpClient;
     }
 
+    /**
+     *
+     *
+     * @param   StreamClient    $streamClient
+     */
+    public function setStreamClient(StreamClient $streamClient)
+    {
+        $this->streamClient = $streamClient;
+    }
+
+    /**
+     *
+     *
+     * @return StreamClient
+     */
+    public function getStreamClient()
+    {
+        return $this->streamClient;
+    }
     /**
      *
      *
@@ -372,7 +410,7 @@ class Client
     ) {
         try {
             $headers = $this->buildHeaders(array('query' => $qs));
-            $response = $this->getClient()->get($method, $headers);
+            $response = $this->getHttpClient()->get($method, $headers);
 
             $this->getLogger()->addDebug('DataSift\Client->get', array($method, $headers));
 
@@ -404,7 +442,7 @@ class Client
     ) {
         try {
             $headers = $this->buildHeaders(array('json' => $body), 'application/json');
-            $response = $this->getClient()->post($method, $headers);
+            $response = $this->getHttpClient()->post($method, $headers);
 
             $this->getLogger()->addDebug('DataSift\Client->post', array($method, $headers));
 
@@ -431,7 +469,7 @@ class Client
     ) {
         try {
             $headers = $this->buildHeaders(array('json' => $body), 'application/json');
-            $response = $this->getClient()->patch($method, $headers);
+            $response = $this->getHttpClient()->patch($method, $headers);
 
             $this->getLogger()->addDebug('DataSift\Client->patch', array($method, $headers));
 
@@ -457,7 +495,7 @@ class Client
     ) {
         try {
             $headers = $this->buildHeaders(array('json' => $body), 'application/json');
-            $response = $this->getClient()->put($method, $headers);
+            $response = $this->getHttpClient()->put($method, $headers);
 
             $this->getLogger()->addDebug('DataSift\Client->put', array($method, $headers));
 
@@ -481,7 +519,7 @@ class Client
     ) {
         try {
             $headers = $this->buildHeaders();
-            $response = $this->getClient()->get($method, $headers);
+            $response = $this->getHttpClient()->get($method, $headers);
 
             $this->getLogger()->addDebug('DataSift\Client->delete', array($method, $headers));
 

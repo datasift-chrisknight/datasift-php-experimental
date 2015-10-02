@@ -16,7 +16,8 @@
         "php": ">=5.5.0",
         "guzzlehttp/psr7": "^1.0.0",
         "guzzlehttp/promises": "^1.0.0",
-        "monolog/monolog": "1.13.1"
+        "monolog/monolog": "1.13.1",
+        "guzzlehttp/streams": "3.0.0"
     },
     "require-dev": {
         "ext-curl": "*",
