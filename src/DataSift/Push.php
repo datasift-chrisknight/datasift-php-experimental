@@ -18,6 +18,30 @@ namespace DataSift;
 
 class Push extends Base
 {
+    protected $streamingClient = null;
+
+    public function __construct(Client $client, StreamingClient $streamingClient)
+    {
+        $this->setStreamingClient($streamingClient);
+        parent::__construct($client);
+    }
+
+    /**
+     * @param StreamingClient $streamingClient
+     */
+    public function setStreamingClient(StreamingClient $streamingClient)
+    {
+        $this->streamingClient = $streamingClient;
+    }
+
+    /**
+     * @return StreamingClient
+     */
+    public function getStreamingClient()
+    {
+        return $this->streamingClient;
+    }
+
     public function get()
     {
 

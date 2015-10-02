@@ -16,7 +16,7 @@
 
 namespace DataSift;
 
-class Historics extends Base
+class Historic extends Base
 {
     const DEFAULT_SAMPLE_SIZE = 100;
 
