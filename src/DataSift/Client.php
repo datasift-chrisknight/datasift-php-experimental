@@ -57,6 +57,7 @@ class Client extends BaseClient
 
         if ($httpClient === null) {
             $httpClient = new HttpClient(array(
+                //@todo SSL
                 'base_uri' => 'http://' . $config['base_uri'] . '/v' . $config['api_version'] . '/',
                 'headers' => array(
                     'User-Agent' => $config['user_agent']

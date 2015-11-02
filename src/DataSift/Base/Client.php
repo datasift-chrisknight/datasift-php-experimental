@@ -15,6 +15,7 @@
  */
 
 namespace DataSift\Base;
+use DataSift\Exception\InvalidDataError;
 use Monolog\Logger as Logger;
 
 class Client
@@ -30,9 +31,19 @@ class Client
     const DEFAULT_BASE_URI                  = 'api.datasift.com';
 
     /**
+     * The default SSL state
+     */
+    const DEFAULT_SSL                       = true;
+
+    /**
      * The default streaming location
      */
     const DEFAULT_STREAM_URI                = 'stream.datasift.com';
+
+    /**
+     * The default ingestion location
+     */
+    const DEFAULT_INGESTION_URI             = 'ingestion.datasift.com';
 
     /**
      * The default API version
@@ -126,8 +137,10 @@ class Client
     protected $defaultConfig = array(
         'username'              => null,
         'api_key'               => null,
+        'ssl'                   => Client::DEFAULT_SSL,
         'base_uri'              => Client::DEFAULT_BASE_URI,
         'stream_uri'            => Client::DEFAULT_STREAM_URI,
+        'ingestion_uri'         => Client::DEFAULT_INGESTION_URI,
         'api_version'           => Client::DEFAULT_API_VERSION,
         'user_agent'            => Client::DEFAULT_USER_AGENT,
         'ssl_verify'            => Client::DEFAULT_SSL_VERIFY,
@@ -175,6 +188,13 @@ class Client
     protected function validateConfig(array $config)
     {
         $required = $this->getRequiredConfig();
+
+        foreach($config as $k => $option) {
+            if (strtolower($k) !== $k) {
+                $config[strtolower($k)] = $option;
+                unset($config[$k]);
+            }
+        }
 
         foreach($config as $k => $option) {
             $pos = array_search($k, $required);
@@ -245,5 +265,10 @@ class Client
     protected function getDefaultConfig()
     {
         return $this->defaultConfig;
+    }
+
+    protected function useSSL()
+    {
+        return $this->getConfig('ssl');
     }
 }
